@@ -6,9 +6,11 @@ import org.json.JSONObject;
 
 
 public class DistanceVector {
+	private String socketAddress;
 	private Hashtable<String, Double> costs;
 	
-	public DistanceVector() {
+	public DistanceVector(String socketAddress) {
+		this.socketAddress = socketAddress;
 		this.costs = new Hashtable<String, Double>();
 	}
 	

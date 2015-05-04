@@ -2,15 +2,20 @@ package controllers;
 
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
-import java.io.IOException;
-import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import models.DistanceVector;
 import models.Settings;
+import models.Utils;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import com.google.gson.Gson;
 
 public class ThreadPooledSender implements Runnable{
 	protected DatagramSocket socket;
@@ -32,18 +37,12 @@ public class ThreadPooledSender implements Runnable{
         /* Listen to incoming packets until stopped */
         while(!isStopped()){
             if (DVChanged() || hostTimeOut()) {
-            	InetAddress destinationAddress;
-				try {
-					destinationAddress = InetAddress.getByName("127.0.0.1");
-//					InetAddress destinationAddress = socket.getLocalAddress();// TODO
-					int destinationPort = 6789;// TODO
-					System.out.println("Address: " + destinationAddress + " port: " + destinationPort);///
-					threadPool.execute(new DVSenderWorkerRunnable(socket,/* TODO DV ,*/ destinationAddress, destinationPort, "Thread Pooled Sender"));
-//	            	System.out.println("time out");///
-				} catch (UnknownHostException e1) {
-					// TODO Auto-generated catch block
-					e1.printStackTrace();
-				}
+				String destinationAddress = "127.0.0.1"; // TODO
+				int destinationPort = 6789;// TODO
+				System.out.println("Address: " + destinationAddress + " port: " + destinationPort);///
+				JSONObject dvPacket = buildDVPacket(destinationAddress, destinationPort);
+				threadPool.execute(new PacketSenderWorkerRunnable(socket, dvPacket , destinationAddress, destinationPort, "Thread Pooled Sender"));
+//	            System.out.println("time out");///
 
             }
         }
@@ -52,8 +51,7 @@ public class ThreadPooledSender implements Runnable{
 //        System.out.println("Listener Stopped.");///
     }
 
-
-    private boolean hostTimeOut() {
+	private boolean hostTimeOut() {
     	boolean result;
     	
     	long timestamp = System.nanoTime();
@@ -72,6 +70,43 @@ public class ThreadPooledSender implements Runnable{
 		// TODO Auto-generated method stub
 		return false;
 	}
+	
+	private JSONObject buildDVPacket(String destinationAddress, int destinationPort) {
+		JSONObject packetContentJSON = new JSONObject();
+		
+		try {
+			DistanceVector dv = buildDV(destinationAddress, destinationPort);
+			Gson gson = new Gson();
+			JSONObject body = new JSONObject(gson.toJson(dv));
+			packetContentJSON.put("command", "routeUpdate");
+			packetContentJSON.put("body", body);
+		} catch (JSONException e) {
+			Utils.println("JSONException - buildDVPacket(): " + e.getMessage());
+		}
+		
+		return packetContentJSON;
+	}
+	
+	/**
+     * Build DV of this host from its current neighbors.
+	 * @param destinationPort 
+	 * @param destinationAddress 
+     * @return Newest DV of this host
+     */
+    private DistanceVector buildDV(String destinationAddress, int destinationPort) {
+    	DistanceVector dv;
+    	
+    	// Initialize
+    	String address = "127.0.0.1"; // TODO Get address from socket
+    	int port = socket.getLocalPort();
+    	dv = new DistanceVector(address + ":" + port);
+    	
+    	// TODO Get costs for neighbors
+    	
+    	
+    	
+    	return dv;
+    }
 
 	private synchronized boolean isStopped() {
         return isStopped;

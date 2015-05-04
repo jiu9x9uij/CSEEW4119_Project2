@@ -5,7 +5,9 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 
+import models.DistanceVector;
 import models.Settings;
+import models.Utils;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -13,7 +15,7 @@ import org.json.JSONObject;
 /**
  * Worker thread that processes incoming packets.
  */
-public class ProcessIncomingPacketsWorkerRunnable implements Runnable{
+public class PacketsProcessorWorkerRunnable implements Runnable{
 	private String serverText;
 	private DatagramSocket socket;
 	private DatagramPacket packetRecieved;
@@ -21,7 +23,7 @@ public class ProcessIncomingPacketsWorkerRunnable implements Runnable{
 	private int destinationPort;
 	private byte[] dataToSend = new byte[Settings.BUFFER_SIZE];
 
-	public ProcessIncomingPacketsWorkerRunnable(DatagramSocket socket, DatagramPacket packetRecieved, String serverText) {
+	public PacketsProcessorWorkerRunnable(DatagramSocket socket, DatagramPacket packetRecieved, String serverText) {
 		this.serverText = serverText;
 		this.socket = socket;
 		this.packetRecieved = packetRecieved;
@@ -30,10 +32,11 @@ public class ProcessIncomingPacketsWorkerRunnable implements Runnable{
 	}
 
     public void run() {
+    	System.out.println("### Packet Received " +  + System.currentTimeMillis() + " ###"); // DEBUG Request received stamp
+		
     	try {
     		/* Read packet content */
     		String packetContent = new String(packetRecieved.getData(), 0, packetRecieved.getLength());
-    		System.out.println("### Packet Received " +  + System.currentTimeMillis() + " ###"); // DEBUG Request received stamp
     		System.out.println("packetContent = " + packetContent); // DEBUG packetContent
     		
     		/* Execute command */
@@ -44,19 +47,15 @@ public class ProcessIncomingPacketsWorkerRunnable implements Runnable{
 			System.out.println("command = " + command); // DEBUG command type
 			
 			// Execute corresponding command
-			String response = null; // TODO not sure if a response is necessary, keeping for debug purpose
-			if (command.equals("capitalize")) {
-				response = capitalize(body);
+			if (command.equals("routeUpdate")) {
+				routeUpdate(body);
+			}
+			else if (command.equals("capitalize")) {
+				System.out.println("---response---\n" + capitalize(body) + "\n------end-----");
 			}
 			else {
 				System.out.println("Command Not Supported!"); // DEBUG command not supported
 			}
-        	
-        	/* Respond to command requester */
-        	System.out.println("---response---\n" + response + "\n------end-----"); // DEBUG Response content
-        	dataToSend = response.toString().getBytes();
-			DatagramPacket sendPacket = new DatagramPacket(dataToSend, dataToSend.length, destinationAddress, destinationPort);
-//			socket.send(sendPacket);
 		} catch (JSONException e) {
 			e.printStackTrace();
 		}
@@ -68,6 +67,23 @@ public class ProcessIncomingPacketsWorkerRunnable implements Runnable{
     }
 
     /**
+     * Received new DV from neighbor, add to host dvQueue for processing
+     * @param body
+     */
+    private void routeUpdate(JSONObject body) {
+		try {
+			// TODO need change
+			String address = body.getString("address");
+			int port = body.getInt("port");
+			HostLauncher.host.getDVQueue().add(new DistanceVector(address + ":" + port));
+		} catch (JSONException e) {
+			Utils.println("JSONException in routeUpdate(): " + e.getMessage());
+		}
+		
+		
+	}
+
+	/**
      * TEST Capitalize incoming message and echo it.
      * @param body
      * @return

@@ -13,7 +13,7 @@ import models.Utils;
 
 
 public class HostLauncher {
-	private static Host host;
+	public static Host host;
 	
 	public static void main(String[] args) {
 		

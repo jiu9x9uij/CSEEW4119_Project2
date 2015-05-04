@@ -18,7 +18,7 @@ public class Host {
 	private ThreadPooledListener listener;
 	private ThreadPooledSender sender;
 	private Hashtable<String, Neighbor> neighbors;
-	private ConcurrentLinkedQueue<DistanceVector> DVQueue;
+	private ConcurrentLinkedQueue<DistanceVector> dvQueue;
 	
 	public Host(int port, Hashtable<String, Neighbor> directNeighbors) {
 		try {
@@ -37,7 +37,7 @@ public class Host {
 			
 			// Initialize the essentials for host
 			this.neighbors = directNeighbors;
-			this.DVQueue = new ConcurrentLinkedQueue<DistanceVector>();
+			this.dvQueue = new ConcurrentLinkedQueue<DistanceVector>();
 			
 			listenToCommand();
 		} catch (SocketException e) {
@@ -97,6 +97,6 @@ public class Host {
 	}
 	
 	public Queue<DistanceVector> getDVQueue() {
-		return DVQueue;
+		return dvQueue;
 	}
 }
