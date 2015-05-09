@@ -3,6 +3,7 @@ package controllers;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 import java.net.DatagramSocket;
+import java.net.InetAddress;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -122,7 +123,7 @@ public class ThreadPooledSender implements Runnable{
     	DistanceVector dv;
     	
     	// Initialize
-    	String address = "127.0.0.1"; // TODO Get address from socket
+    	String address = "127.0.0.1"; // TODO Use InetAddress.getLocalHost().getHostAddress()
     	int port = socket.getLocalPort();
     	dv = new DistanceVector(address + ":" + port);
     	
