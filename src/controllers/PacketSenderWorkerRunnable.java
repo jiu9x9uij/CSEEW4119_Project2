@@ -31,10 +31,11 @@ public class PacketSenderWorkerRunnable implements Runnable{
 	}
 
     public void run() {
-    	System.out.println("### Sending Packet " +  + System.currentTimeMillis() + " ###"); // DEBUG Request received stamp
+//    	System.out.println("### Sending Packet " +  + System.currentTimeMillis() + " ###"); // DEBUG Request received stamp
 		
     	try {
-    		System.out.println("packetContent = " + packetContentJSON); // DEBUG packetContentJSON
+//    		System.out.println("packetContent = " + packetContentJSON); // DEBUG packetContentJSON
+    		System.out.println("\tSending dv to " + destinationAddress + ":" + destinationPort); // DEBUG destinationAddress
         	
 			dataToSend = packetContentJSON.toString().getBytes();
 			DatagramPacket sendPacket = new DatagramPacket(dataToSend, dataToSend.length, InetAddress.getByName(destinationAddress), destinationPort);
@@ -45,6 +46,6 @@ public class PacketSenderWorkerRunnable implements Runnable{
 			e.printStackTrace();
 		}
     	
-    	System.out.println("######### Done #########"); // DEBUG Request processed
+//    	System.out.println("######### Done #########\n"); // DEBUG Request processed
     }
 }

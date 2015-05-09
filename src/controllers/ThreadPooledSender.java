@@ -3,12 +3,11 @@ package controllers;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 import java.net.DatagramSocket;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import models.DistanceVector;
+import models.Neighbor;
 import models.Settings;
 import models.Utils;
 
@@ -23,34 +22,50 @@ public class ThreadPooledSender implements Runnable{
 	protected Thread runningThread= null;
 	protected ExecutorService threadPool = Executors.newFixedThreadPool(10);
 	private long timestampPrev;
+	private boolean dvChanged = false;
 
     public ThreadPooledSender(DatagramSocket socket) {
 		this.socket = socket;
 		this.timestampPrev = System.nanoTime();
 	}
 
+    /**
+     * Broadcast updated DV in an infinite loop.
+     */
 	public void run(){
         synchronized(this){
             runningThread = Thread.currentThread();
         }
         
-        /* Listen to incoming packets until stopped */
+        /* Send dv to neighbors when time out or routing table changed */
         while(!isStopped()){
-            if (DVChanged() || hostTimeOut()) {
-				String destinationAddress = "127.0.0.1"; // TODO
-				int destinationPort = 6789;// TODO
-				System.out.println("Address: " + destinationAddress + " port: " + destinationPort);///
-				JSONObject dvPacket = buildDVPacket(destinationAddress, destinationPort);
-				threadPool.execute(new PacketSenderWorkerRunnable(socket, dvPacket , destinationAddress, destinationPort, "Thread Pooled Sender"));
-//	            System.out.println("time out");///
-
+            if (dvChanged || hostTimeOut()) {
+            	if (dvChanged) System.out.println("DV changed");///
+            	else System.out.println("Host time-out");///
+            	for (Neighbor n: HostLauncher.host.getNeighbors().values()) {
+                	try {
+            			String socketAddress = n.getSocketAddress();
+                		String parts[] = socketAddress.split(":");
+                		String destinationAddress = parts[0];//"127.0.0.1"; // TODO Use parts[0]
+        				int destinationPort = Integer.parseInt(parts[1]);// TODO
+        				
+        				JSONObject dvPacket = buildDVPacket(destinationAddress, destinationPort);
+        				threadPool.execute(new PacketSenderWorkerRunnable(socket, dvPacket , destinationAddress, destinationPort, "Thread Pooled Sender"));
+            		} catch (NumberFormatException e) {
+            			Utils.println("NumberFormatException in run()" + e.getMessage());
+            		}
+            	}
             }
         }
         
         threadPool.shutdown();
-//        System.out.println("Listener Stopped.");///
+//        System.out.println("Listener Stopped."); // DEBUG Thread pool stop signal
     }
 
+	/**
+	 * Calculate based on current time whether expiration time has been reached.
+	 * @return
+	 */
 	private boolean hostTimeOut() {
     	boolean result;
     	
@@ -66,11 +81,19 @@ public class ThreadPooledSender implements Runnable{
     	return result;
 	}
 
-	private boolean DVChanged() {
-		// TODO Auto-generated method stub
-		return false;
+	/**
+	 * For host to send signal for sending updated DV to neighbors.
+	 */
+	public void dvChanged() {
+		dvChanged = true;
 	}
 	
+	/**
+	 * Encode DV into JSON format.
+	 * @param destinationAddress
+	 * @param destinationPort
+	 * @return
+	 */
 	private JSONObject buildDVPacket(String destinationAddress, int destinationPort) {
 		JSONObject packetContentJSON = new JSONObject();
 		
@@ -80,6 +103,8 @@ public class ThreadPooledSender implements Runnable{
 			JSONObject body = new JSONObject(gson.toJson(dv));
 			packetContentJSON.put("command", "routeUpdate");
 			packetContentJSON.put("body", body);
+			
+			dvChanged = false;
 		} catch (JSONException e) {
 			Utils.println("JSONException - buildDVPacket(): " + e.getMessage());
 		}
@@ -101,8 +126,19 @@ public class ThreadPooledSender implements Runnable{
     	int port = socket.getLocalPort();
     	dv = new DistanceVector(address + ":" + port);
     	
-    	// TODO Get costs for neighbors
-    	
+    	// Get costs for neighbors
+    	for (Neighbor n: HostLauncher.host.getNeighbors().values()) {
+    		String socketAddressNeighbor = n.getSocketAddress();
+    		double cost = n.getCost();
+    		String socketAddressNextHop = n.getNextHop();
+    		String socketAddressDestination = destinationAddress + ":" + destinationPort;
+    		
+    		if (socketAddressNextHop.equals(socketAddressDestination)) {
+    			cost = Double.MAX_VALUE;
+    		}
+    		
+    		dv.add(socketAddressNeighbor, cost);
+    	}
     	
     	
     	return dv;

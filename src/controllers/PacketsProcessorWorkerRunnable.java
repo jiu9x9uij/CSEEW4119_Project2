@@ -1,6 +1,5 @@
 package controllers;
 
-import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -11,6 +10,9 @@ import models.Utils;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonSyntaxException;
 
 /**
  * Worker thread that processes incoming packets.
@@ -32,19 +34,19 @@ public class PacketsProcessorWorkerRunnable implements Runnable{
 	}
 
     public void run() {
-    	System.out.println("### Packet Received " +  + System.currentTimeMillis() + " ###"); // DEBUG Request received stamp
+//    	System.out.println("### Packet Received " +  + System.currentTimeMillis() + " ###"); // DEBUG Request received stamp
 		
     	try {
     		/* Read packet content */
     		String packetContent = new String(packetRecieved.getData(), 0, packetRecieved.getLength());
-    		System.out.println("packetContent = " + packetContent); // DEBUG packetContent
+//    		System.out.println("packetContent = " + packetContent); // DEBUG packetContent
     		
     		/* Execute command */
 			// Parse command
 			JSONObject packetContentJSON = new JSONObject(packetContent);
 			String command = packetContentJSON.getString("command");
 			JSONObject body = packetContentJSON.getJSONObject("body");
-			System.out.println("command = " + command); // DEBUG command type
+//			System.out.println("command = " + command); // DEBUG command type
 			
 			// Execute corresponding command
 			if (command.equals("routeUpdate")) {
@@ -63,7 +65,7 @@ public class PacketsProcessorWorkerRunnable implements Runnable{
 //			e.printStackTrace();
 //		}
     	
-    	System.out.println("######### Done #########"); // DEBUG Request processed
+//    	System.out.println("######### Done #########\n"); // DEBUG Request processed
     }
 
     /**
@@ -72,12 +74,14 @@ public class PacketsProcessorWorkerRunnable implements Runnable{
      */
     private void routeUpdate(JSONObject body) {
 		try {
-			// TODO need change
-			String address = body.getString("address");
-			int port = body.getInt("port");
-			HostLauncher.host.getDVQueue().add(new DistanceVector(address + ":" + port));
+			Gson gson = new Gson();
+			System.out.println("routeUpdate from " + (gson.fromJson(body.toString(), DistanceVector.class)).getSocketAddress()); // DEBUG packet
+			HostLauncher.host.updateDV(gson.fromJson(body.toString(), DistanceVector.class));
+//			HostLauncher.host.getDVQueue().add(gson.fromJson(body.toString(), DistanceVector.class));
 		} catch (JSONException e) {
 			Utils.println("JSONException in routeUpdate(): " + e.getMessage());
+		} catch (JsonSyntaxException e) {
+			Utils.println("JsonSyntaxException in routeUpdate(): " + e.getMessage());
 		}
 		
 		

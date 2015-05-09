@@ -52,6 +52,7 @@ public class HostLauncher {
 			
 			/* Start host */
 			host = new Host(port, directNeighbors);
+			host.start();
 			
 		} catch (FileNotFoundException e) {
 			Utils.println("ERROR: Cannot open file. Please make sure the file is put under correct dir following README.");

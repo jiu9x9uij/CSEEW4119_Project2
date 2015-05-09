@@ -1,5 +1,7 @@
 package models;
 
+import com.google.gson.Gson;
+
 
 public class Neighbor {
 	String socketAddress;
@@ -40,5 +42,15 @@ public class Neighbor {
 	
 	public void setNextHop(String nextHop) {
 		this.nextHop = nextHop;
+	}
+	
+	@Override
+	public String toString() {
+		StringBuffer s = new StringBuffer();
+		
+		Gson gson = new Gson();
+		s.append(gson.toJson(this));
+		
+		return s.toString();
 	}
 }
