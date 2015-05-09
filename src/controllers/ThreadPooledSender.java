@@ -9,7 +9,7 @@ import java.util.concurrent.Executors;
 
 import models.DistanceVector;
 import models.Neighbor;
-import models.Settings;
+import models.SettingsNOTUSED;
 import models.Utils;
 
 import org.json.JSONException;
@@ -23,7 +23,8 @@ public class ThreadPooledSender implements Runnable{
 	protected Thread runningThread= null;
 	protected ExecutorService threadPool = Executors.newFixedThreadPool(10);
 	private long timestampPrev;
-	private boolean dvChanged = false;
+	private boolean dvChanged = false, notifyLinkDown = false;
+	private String socketAddressNewDown = null;
 
     public ThreadPooledSender(DatagramSocket socket) {
 		this.socket = socket;
@@ -38,22 +39,52 @@ public class ThreadPooledSender implements Runnable{
             runningThread = Thread.currentThread();
         }
         
-        /* Send dv to neighbors when time out or routing table changed */
+//        int i = 0;///
         while(!isStopped()){
+        	if (notifyLinkDown) {
+        		notifyLinkDown = false;
+//        		if (i > 15) break;///
+//            	System.out.println(i++);///
+        		System.out.println("Notify link-down");///
+        		for (Neighbor n: HostLauncher.host.getNeighbors().values()) {
+        			System.out.println("\t" + n.getSocketAddress() + " online? " + !n.isDown());///
+        			if (!n.isDown()) {
+            			try {
+                			String socketAddress = n.getSocketAddress();
+                    		String parts[] = socketAddress.split(":");
+                    		String destinationAddress = parts[0];
+            				int destinationPort = Integer.parseInt(parts[1]);
+            				
+            				JSONObject linkDownPacket = buildLinkDownPacket();
+                    		threadPool.execute(new PacketSenderWorkerRunnable(socket, linkDownPacket , destinationAddress, destinationPort, "Thread Pooled Sender"));
+                		} catch (NumberFormatException e) {
+                			Utils.println("NumberFormatException in run()" + e.getMessage());
+                		}
+            		}
+            	}
+        	}
+        	
+        	/* Send dv to online neighbors when time out or routing table changed */
             if (dvChanged || hostTimeOut()) {
+            	dvChanged = false;
             	if (dvChanged) System.out.println("DV changed");///
-            	else System.out.println("Host time-out");///
+            	else {
+            		System.out.println("Host time-out");///
+            		HostLauncher.host.showRoutingTable("\t");///
+            	}
             	for (Neighbor n: HostLauncher.host.getNeighbors().values()) {
-                	try {
-            			String socketAddress = n.getSocketAddress();
-                		String parts[] = socketAddress.split(":");
-                		String destinationAddress = parts[0];//"127.0.0.1"; // TODO Use parts[0]
-        				int destinationPort = Integer.parseInt(parts[1]);// TODO
-        				
-        				JSONObject dvPacket = buildDVPacket(destinationAddress, destinationPort);
-        				threadPool.execute(new PacketSenderWorkerRunnable(socket, dvPacket , destinationAddress, destinationPort, "Thread Pooled Sender"));
-            		} catch (NumberFormatException e) {
-            			Utils.println("NumberFormatException in run()" + e.getMessage());
+            		if (!n.isDown()) {
+            			try {
+                			String socketAddress = n.getSocketAddress();
+                    		String parts[] = socketAddress.split(":");
+                    		String destinationAddress = parts[0];
+            				int destinationPort = Integer.parseInt(parts[1]);
+            				
+            				JSONObject dvPacket = buildDVPacket(destinationAddress, destinationPort);
+            				threadPool.execute(new PacketSenderWorkerRunnable(socket, dvPacket , destinationAddress, destinationPort, "Thread Pooled Sender"));
+                		} catch (NumberFormatException e) {
+                			Utils.println("NumberFormatException in run()" + e.getMessage());
+                		}
             		}
             	}
             }
@@ -62,6 +93,35 @@ public class ThreadPooledSender implements Runnable{
         threadPool.shutdown();
 //        System.out.println("Listener Stopped."); // DEBUG Thread pool stop signal
     }
+	
+	private synchronized JSONObject buildLinkDownPacket() {
+		JSONObject packetContentJSON = new JSONObject();
+		
+		try {
+			packetContentJSON.put("command", "linkDown");
+			JSONObject body = new JSONObject();
+			body.put("socketAddress", socketAddressNewDown);
+			packetContentJSON.put("body", body);
+			
+			notifyLinkDown = false;
+		} catch (JSONException e) {
+			Utils.println("JSONException - buildLinkDownPacket(): " + e.getMessage());
+		}
+		
+		return packetContentJSON;
+	}
+
+	/**
+	 * Send signal to notify every online host about a host going down.
+	 * Reset timer.
+	 * @param socketAddress
+	 */
+	public synchronized void notifyLinkDown(String socketAddress) {
+		notifyLinkDown = true;
+		socketAddressNewDown = socketAddress;
+		
+		timestampPrev = System.nanoTime();
+	}
 
 	/**
 	 * Calculate based on current time whether expiration time has been reached.
@@ -71,7 +131,7 @@ public class ThreadPooledSender implements Runnable{
     	boolean result;
     	
     	long timestamp = System.nanoTime();
-    	if (NANOSECONDS.toSeconds(timestamp - timestampPrev) >= Settings.TIME_OUT) {
+    	if (NANOSECONDS.toSeconds(timestamp - timestampPrev) >= HostLauncher.TIME_OUT) {
 			result = true;
 			timestampPrev = timestamp;
 		}
@@ -83,10 +143,13 @@ public class ThreadPooledSender implements Runnable{
 	}
 
 	/**
-	 * For host to send signal for sending updated DV to neighbors.
+	 * Send signal for sending updated DV to neighbors.
+	 * Reset timer.
 	 */
-	public void dvChanged() {
+	public synchronized void dvChanged() {
 		dvChanged = true;
+		
+		timestampPrev = System.nanoTime();
 	}
 	
 	/**
@@ -123,7 +186,7 @@ public class ThreadPooledSender implements Runnable{
     	DistanceVector dv;
     	
     	// Initialize
-    	String address = "127.0.0.1"; // TODO Use InetAddress.getLocalHost().getHostAddress()
+    	String address = HostLauncher.host.getAddress(); // TODO Use InetAddress.getLocalHost().getHostAddress()
     	int port = socket.getLocalPort();
     	dv = new DistanceVector(address + ":" + port);
     	
@@ -134,9 +197,19 @@ public class ThreadPooledSender implements Runnable{
     		String socketAddressNextHop = n.getNextHop();
     		String socketAddressDestination = destinationAddress + ":" + destinationPort;
     		
-    		if (socketAddressNextHop.equals(socketAddressDestination)) {
+    		// If destination is the next hop from host to n (poison reverse), set cost to infinity
+    		// NOTE First condition actually doesn't matter since a host doesn't check its distance to itself
+    		// If next hop is down, set cost to infinity
+    		if ((!socketAddressNeighbor.equals(socketAddressDestination) && socketAddressNextHop.equals(socketAddressDestination))
+    			|| HostLauncher.host.getNeighbors().get(socketAddressNextHop).isDown()) {
     			cost = Double.MAX_VALUE;
     		}
+    		
+//    		System.out.println("# socketAddressNeighbor = " + socketAddressNeighbor);///
+//    		System.out.println("# socketAddressNextHop = " + socketAddressNextHop);///
+//    		System.out.println("# socketAddressDestination = " + socketAddressDestination);///
+//    		System.out.println("# cost = " + cost + "\n");///
+    		
     		
     		dv.add(socketAddressNeighbor, cost);
     	}

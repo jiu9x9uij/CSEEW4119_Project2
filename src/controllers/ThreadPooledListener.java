@@ -11,7 +11,7 @@ import java.net.Socket;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import models.Settings;
+import models.SettingsNOTUSED;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -35,7 +35,7 @@ public class ThreadPooledListener implements Runnable{
         while(!isStopped()){
             try {
             	// When a packet is received, process it in a worker thread
-            	byte[] receiveData = new byte[Settings.BUFFER_SIZE];
+            	byte[] receiveData = new byte[HostLauncher.BUFFER_SIZE];
             	DatagramPacket packet = new DatagramPacket(receiveData, receiveData.length);
 				socket.receive(packet);
 				threadPool.execute(new PacketsProcessorWorkerRunnable(socket, packet, "Thread Pooled Listener"));

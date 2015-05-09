@@ -6,7 +6,7 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
-import models.Settings;
+import models.SettingsNOTUSED;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -20,7 +20,7 @@ public class PacketSenderWorkerRunnable implements Runnable{
 	private JSONObject packetContentJSON;
 	private String destinationAddress;
 	private int destinationPort;
-	private byte[] dataToSend = new byte[Settings.BUFFER_SIZE];
+	private byte[] dataToSend = new byte[HostLauncher.BUFFER_SIZE];
 
 	public PacketSenderWorkerRunnable(DatagramSocket socket, JSONObject packetContentJSON, String destinationAddress, int destinationPort, String serverText) {
 		this.serverText = serverText;
@@ -35,7 +35,7 @@ public class PacketSenderWorkerRunnable implements Runnable{
 		
     	try {
 //    		System.out.println("packetContent = " + packetContentJSON); // DEBUG packetContentJSON
-    		System.out.println("\tSending dv to " + destinationAddress + ":" + destinationPort); // DEBUG destinationAddress
+    		System.out.println("\tSending dv to " + destinationAddress + ":" + destinationPort + " " + packetContentJSON); // DEBUG destinationAddress
         	
 			dataToSend = packetContentJSON.toString().getBytes();
 			DatagramPacket sendPacket = new DatagramPacket(dataToSend, dataToSend.length, InetAddress.getByName(destinationAddress), destinationPort);

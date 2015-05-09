@@ -14,9 +14,12 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 import models.DistanceVector;
 import models.Neighbor;
+import models.SettingsNOTUSED;
 import models.Utils;
 
 public class Host {
+	private String address;
+	private int port;
 	private DatagramSocket socket;
 	private ThreadPooledListener listener;
 	private ThreadPooledSender sender;
@@ -25,20 +28,31 @@ public class Host {
 	
 	public Host(int port, Hashtable<String, Neighbor> directNeighbors) {
 		try {
+			this.address = InetAddress.getLocalHost().getHostName();///
+			System.out.println("Host Address = " + address + "\n");///
+			address = "127.0.0.1"; // TODO delete
+			this.port = port;
 			// Open the UDP socket for both sending and listening
 			this.socket = new DatagramSocket(port);
-			System.out.println("Host Address = " + InetAddress.getLocalHost().getHostAddress() + ":" + port + "\n");///
+			System.out.println("Host Port = " + port + "\n");///
+			System.out.println("TIME_OUT = " + HostLauncher.TIME_OUT + "\n");///
 			
 			// Initialize the essentials for host
 			this.neighbors = new Hashtable<String, Neighbor>(directNeighbors);
+			for (Neighbor n: neighbors.values()) {
+				System.out.println("Down?" + n.isDown());///
+				System.out.println(n);///
+			}
+			System.out.println();///
 			this.dvQueue = new ConcurrentLinkedQueue<DistanceVector>();
 		} catch (SocketException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			// Error occured when opening socket on specified port, exit program
+			Utils.println("SocketException - Host constructor: " + e.getMessage());
+			System.exit(0);
 		} catch (UnknownHostException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
-		}		
+		}
 	}
 	
 	public void start() {
@@ -72,7 +86,7 @@ public class Host {
 //				else if (command.toLowerCase().startsWith("linkup")) linkUp(command);
 //				else if (command.equals("changecost")) changeCost();
 				else if (command.startsWith("showrt")) {
-					showRoutingTable();
+					showRoutingTable("");
 				}
 //				else if (command.startsWith("transfer")) transfer(command);
 //				else if (command.startsWith("addproxy")) addProxy(command);
@@ -81,9 +95,12 @@ public class Host {
 				else Utils.println("ERROR: Invalid command. Type \"help\" to see list of commands.");
 			}
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			Utils.println("IOException - Config reading: " + e.getMessage());
 		}
+	}
+	
+	public String getAddress() {
+		return address;
 	}
 	
 	private void close() {
@@ -95,16 +112,28 @@ public class Host {
 	private void linkDown(String command) {
 		// TODO Auto-generated method stub
 		System.out.println("LINKDOWN");///
+		String parts[] = command.split(" ");
+		String addressToKickOff = parts[0];
+		String portToKickOff = parts[1];
+		neighbors.get(addressToKickOff + ":" + portToKickOff).linkDown();
 	}
 	
-	private void showRoutingTable() {
+	public synchronized void showRoutingTable(String leftPadding) {
+		System.out.println(leftPadding + "====== Routing Table ======");///
 		Date timestamp = new java.util.Date();
-		Utils.println(timestamp.toString() + " Distance vector list is:");
+		Utils.println(leftPadding + timestamp.toString() + " Distance vector list is:");
 		for (Neighbor n: neighbors.values()) {
-			Utils.print("Destination = " + n.getSocketAddress() + ", ");
-			Utils.print("Cost = " + n.getCost() + ", ");
-			Utils.println("Link = (" + n.getNextHop() + ")");
+			Utils.print(leftPadding + "Destination = " + n.getSocketAddress() + ", ");
+			if (n.getCost() == Double.MAX_VALUE) {
+				Utils.print("Cost = INF, ");
+				Utils.println("Link = (nil)");
+			} else {
+				Utils.print("Cost = " + n.getCost() + ", ");
+				Utils.println("Link = (" + n.getNextHop() + ")");
+			}
 		}
+		System.out.println(leftPadding + "=========== End ===========");///
+		
 	}
 	
 	public Hashtable<String, Neighbor> getNeighbors() {
@@ -113,10 +142,6 @@ public class Host {
 	
 	public void addNeighbor(Neighbor n) {
 		neighbors.put(n.getSocketAddress(), n);
-	}
-	
-	public Queue<DistanceVector> getDVQueue() {// TODO not used
-		return dvQueue;
 	}
 	
 	/**
@@ -140,23 +165,55 @@ public class Host {
 	 * Recalculate routing table according to current DVs.
 	 */
 	public synchronized void updateRoutingTable() {
-		System.out.println("\n=== Updating Routing Table ===");///
+		long t = System.nanoTime();///
+		System.out.println("\n### Updating Routing Table " + t + " ###");///
+		showRoutingTable("");///
 		boolean changed = false;
 		
-		for (Neighbor y: neighbors.values()) {
-			/* TODO 
-			 * 第一部分还差bellman-ford。
-			 * 在考虑要不要把host的dv存成host的一个member。现在是在sender里动态生成的。
-			 * 气氛上，现在不需要每次有新的dv来都重新算dv，但实际上似乎是顺便的。
-			 */
-			System.out.println("y = " + y);///
-			for (Neighbor v: neighbors.values()) {
-				if(!y.equals(v) && v.getDV() != null) {
-					System.out.println("\tv = " + v.getDV());///
-					double newCost = v.getCost() + v.getDV().getCostTo(y.getSocketAddress());
-					if (newCost < y.getCost()) {
-						y.setCost(newCost);
-						y.setNextHop(v.getSocketAddress());
+		for (Neighbor dest: neighbors.values()) {
+			// Break links to offline hosts by setting cost via offline server to infinity
+						if (neighbors.get(dest.getNextHop()).isDown()) {
+							System.out.println("\tdest's NH is down");///
+							dest.setCost(Double.MAX_VALUE);
+						}
+			
+						// Force recomputing cost to offline hosts since its original next hop may not be able to reach it anymore
+						if (dest.isDown() && !dest.getSocketAddress().equals(dest.getNextHop()) && neighbors.get(dest.getNextHop()).getDV() != null) {
+							System.out.println("\tdest is down && dest's NH is not itself && NH's dv exists");///
+							double currentCostFromNextHopToDest = neighbors.get(dest.getNextHop()).getDV().getCostTo(dest.getSocketAddress());
+							if (dest.getCost() < currentCostFromNextHopToDest) {
+								dest.setCost(Double.MAX_VALUE);
+							}
+						}
+		}
+		
+		for (Neighbor dest: neighbors.values()) {
+			System.out.println("dest = " + dest);///
+			
+			
+			
+
+			
+			// Compute new next hops
+			for (Neighbor potentialNextHop: neighbors.values()) {
+				if(dest.equals(potentialNextHop) && potentialNextHop.getDV() != null && !potentialNextHop.isDown()) {
+					System.out.println("\tpotentialNextHop = " + potentialNextHop.getDV());///
+					double newCost = potentialNextHop.getDV().getCostTo(address + ":" + port);
+					System.out.println("\t\tdest.cost = " + dest.getCost());///
+					System.out.println("\t\tnewCost = " + newCost);///
+					if (newCost < dest.getCost()) {
+						dest.setCost(newCost);
+						dest.setNextHop(potentialNextHop.getSocketAddress());
+						changed = true;
+					}
+				} else if(!dest.equals(potentialNextHop) && potentialNextHop.getDV() != null  && !potentialNextHop.isDown()) {
+					System.out.println("\tpotentialNextHop = " + potentialNextHop.getDV());///
+					double newCost = potentialNextHop.getCost() + potentialNextHop.getDV().getCostTo(dest.getSocketAddress());
+					System.out.println("\t\tdest.cost = " + dest.getCost());///
+					System.out.println("\t\tnewCost = " + newCost);///
+					if (newCost < dest.getCost()) {
+						dest.setCost(newCost);
+						dest.setNextHop(potentialNextHop.getSocketAddress());
 						changed = true;
 					}
 				}	
@@ -165,8 +222,12 @@ public class Host {
 		
 		if (changed) {
 			sender.dvChanged();
-			showRoutingTable();
+			showRoutingTable("");
 		}
-		System.out.println("============ Done ============\n");///
+		System.out.println("############ Done " + t + " ############\n");///
+	}
+	
+	public synchronized void notifyLinkDown(String socketAddressNewDown) {
+		sender.notifyLinkDown(socketAddressNewDown);
 	}
 }

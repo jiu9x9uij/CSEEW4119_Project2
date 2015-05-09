@@ -8,12 +8,14 @@ import java.io.InputStreamReader;
 import java.util.Hashtable;
 
 import models.Neighbor;
-import models.Settings;
+import models.SettingsNOTUSED;
 import models.Utils;
 
 
 public class HostLauncher {
 	public static Host host;
+	public static final int BUFFER_SIZE = 1024;
+	public static long TIME_OUT = 30; // In seconds
 	
 	public static void main(String[] args) {
 		
@@ -23,7 +25,6 @@ public class HostLauncher {
 			System.exit(0);
 		}
 		
-//		Settings.TIME_OUT = 5;
 		int port;
 		Hashtable<String, Neighbor> directNeighbors = new Hashtable<String, Neighbor>();
 		String line;
@@ -38,7 +39,7 @@ public class HostLauncher {
 			line = bufferedReader.readLine();
 			words = line.split(" ");
 			port = Integer.parseInt(words[0]);
-			Settings.TIME_OUT = Integer.parseInt(words[1]);
+			TIME_OUT = Integer.parseInt(words[1]);
 			
 			// Read neighbor information from the rest
 			while ((line = bufferedReader.readLine()) != null) {
