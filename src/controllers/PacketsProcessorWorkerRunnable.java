@@ -77,8 +77,11 @@ public class PacketsProcessorWorkerRunnable implements Runnable{
 			Gson gson = new Gson();
 			DistanceVector dv = gson.fromJson(body.toString(), DistanceVector.class);
 			System.out.println("ROUTEUPDATE from " + dv.getSocketAddress()); // DEBUG packet
-			HostLauncher.host.getNeighbors().get(dv.getSocketAddress()).updateTimestamp();
-			HostLauncher.host.updateDV(dv);
+			Neighbor neighbor = HostLauncher.host.getNeighbors().get(dv.getSocketAddress());
+			if (neighbor != null) {
+				HostLauncher.host.getNeighbors().get(dv.getSocketAddress()).updateTimestamp();
+				HostLauncher.host.updateDV(dv);
+			}
 		} catch (JSONException e) {
 			Utils.println("JSONException in routeUpdate(): " + e.getMessage());
 		} catch (JsonSyntaxException e) {

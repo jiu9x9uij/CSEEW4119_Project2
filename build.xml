@@ -11,6 +11,8 @@
     <path id="CSEEW4119_Project2.classpath">
         <pathelement location="bin"/>
         <pathelement location="lib/org.json-20131017.jar"/>
+        <pathelement location="lib/gson-2.3.1.jar"/>
+        <pathelement location="lib/commons-lang3-3.4.jar"/>
     </path>
     <target name="init">
         <mkdir dir="bin"/>
@@ -48,18 +50,37 @@
         <property name="build.compiler" value="org.eclipse.jdt.core.JDTCompilerAdapter"/>
         <antcall target="build"/>
     </target>
-    <target name="UDPServer">
-        <java classname="controllers.test.UDPServer" failonerror="true" fork="yes">
-            <classpath refid="CSEEW4119_Project2.classpath"/>
-        </java>
-    </target>
     <target name="UDPClient">
-        <java classname="controllers.test.UDPClient" failonerror="true" fork="yes">
+        <java classname="controllers.example.UDPClient" failonerror="true" fork="yes">
             <classpath refid="CSEEW4119_Project2.classpath"/>
         </java>
     </target>
-    <target name="HostLauncher">
+    <target name="UDPServer">
+        <java classname="controllers.example.UDPServer" failonerror="true" fork="yes">
+            <classpath refid="CSEEW4119_Project2.classpath"/>
+        </java>
+    </target>
+    <target name="HostLauncher-c0">
         <java classname="controllers.HostLauncher" failonerror="true" fork="yes">
+            <arg line="client0.txt"/>
+            <classpath refid="CSEEW4119_Project2.classpath"/>
+        </java>
+    </target>
+    <target name="HostLauncher-c1">
+        <java classname="controllers.HostLauncher" failonerror="true" fork="yes">
+            <arg line="client1.txt"/>
+            <classpath refid="CSEEW4119_Project2.classpath"/>
+        </java>
+    </target>
+    <target name="HostLauncher-c2">
+        <java classname="controllers.HostLauncher" failonerror="true" fork="yes">
+            <arg line="client2.txt"/>
+            <classpath refid="CSEEW4119_Project2.classpath"/>
+        </java>
+    </target>
+    <target name="HostLauncher-c3">
+        <java classname="controllers.HostLauncher" failonerror="true" fork="yes">
+            <arg line="client3.txt"/>
             <classpath refid="CSEEW4119_Project2.classpath"/>
         </java>
     </target>

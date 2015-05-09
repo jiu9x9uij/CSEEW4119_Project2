@@ -27,11 +27,11 @@ public class Neighbor {
 		return socketAddress;
 	}
 	
-	public double getCost() {
+	public synchronized double getCost() {
 		return cost;
 	}
 	
-	public void setCost(double cost) {
+	public synchronized void setCost(double cost) {
 		this.cost = cost;
 	}
 	

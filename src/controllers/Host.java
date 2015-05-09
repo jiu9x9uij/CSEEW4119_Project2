@@ -28,9 +28,9 @@ public class Host {
 	
 	public Host(int port, Hashtable<String, Neighbor> directNeighbors) {
 		try {
-			this.address = InetAddress.getLocalHost().getHostName();///
+			this.address = InetAddress.getLocalHost().getHostAddress();///
 			System.out.println("Host Address = " + address + "\n");///
-			address = "127.0.0.1"; // TODO delete
+//			address = "127.0.0.1"; // TODO delete
 			this.port = port;
 			// Open the UDP socket for both sending and listening
 			this.socket = new DatagramSocket(port);
@@ -111,10 +111,12 @@ public class Host {
 	
 	private void linkDown(String command) {
 		// TODO Auto-generated method stub
-		System.out.println("LINKDOWN");///
+		System.out.println("user input - linkdown");///
 		String parts[] = command.split(" ");
-		String addressToKickOff = parts[0];
-		String portToKickOff = parts[1];
+		String addressToKickOff = parts[1];
+		String portToKickOff = parts[2];
+		System.out.println("\t addressToKickOff = " + addressToKickOff);///
+		System.out.println("\t portToKickOff = " + portToKickOff);///
 		neighbors.get(addressToKickOff + ":" + portToKickOff).linkDown();
 	}
 	
@@ -170,7 +172,32 @@ public class Host {
 		showRoutingTable("");///
 		boolean changed = false;
 		
+		// Discover new neighbors based on each current neighbor's DV
+		System.out.println("1. Descover new neighbors...");///
+		Hashtable<String, Neighbor> newNeighbors = new Hashtable<String, Neighbor>();
+		for (Neighbor n: neighbors.values()) {
+			System.out.println("n = " + n);///
+			if (n.getDV() != null && !n.isDown()) {
+				for (String dest: n.getDV().getCosts().keySet()) {
+					System.out.println("\tpotentialDest = " + dest);///
+					// Discovered a new reachable host that's not this host
+					if (!dest.equals(address + ":" + port) && neighbors.get(dest) == null) {
+						System.out.println("\t\tn.cost= " + n.getCost());///
+						System.out.println("\t\tnToDext.cost()= " + n.getDV().getCostTo(dest));///
+						Neighbor newNeighbor = new Neighbor(dest, n.getCost() + n.getDV().getCostTo(dest));
+						// The next hop to this new neighbor is the current neighbor n
+						newNeighbor.setNextHop(n.getSocketAddress());
+						newNeighbors.put(dest, newNeighbor);
+					}
+				}
+			}
+		}
+		neighbors.putAll(newNeighbors);
+		
+		// Reset cost involving offline hosts
+		System.out.println("2. Reset cost involving offline hosts...");///
 		for (Neighbor dest: neighbors.values()) {
+			System.out.println("dest = " + dest);///
 			// Break links to offline hosts by setting cost via offline server to infinity
 						if (neighbors.get(dest.getNextHop()).isDown()) {
 							System.out.println("\tdest's NH is down");///
@@ -187,13 +214,10 @@ public class Host {
 						}
 		}
 		
+		// Recompute routing table
+		System.out.println("3. Recompute routing table...");///
 		for (Neighbor dest: neighbors.values()) {
 			System.out.println("dest = " + dest);///
-			
-			
-			
-
-			
 			// Compute new next hops
 			for (Neighbor potentialNextHop: neighbors.values()) {
 				if(dest.equals(potentialNextHop) && potentialNextHop.getDV() != null && !potentialNextHop.isDown()) {
@@ -208,7 +232,8 @@ public class Host {
 					}
 				} else if(!dest.equals(potentialNextHop) && potentialNextHop.getDV() != null  && !potentialNextHop.isDown()) {
 					System.out.println("\tpotentialNextHop = " + potentialNextHop.getDV());///
-					double newCost = potentialNextHop.getCost() + potentialNextHop.getDV().getCostTo(dest.getSocketAddress());
+					double costFromPNHToDest = potentialNextHop.getDV().getCostTo(dest.getSocketAddress());
+					double newCost = potentialNextHop.getCost() + costFromPNHToDest;
 					System.out.println("\t\tdest.cost = " + dest.getCost());///
 					System.out.println("\t\tnewCost = " + newCost);///
 					if (newCost < dest.getCost()) {

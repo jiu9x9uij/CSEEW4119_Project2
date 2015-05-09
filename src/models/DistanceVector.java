@@ -26,8 +26,18 @@ public class DistanceVector {
 		costs.put(socketAddress, cost);
 	}
 	
+	public Hashtable<String, Double> getCosts() {
+		return costs;
+	}
+	
 	public double getCostTo(String socketAddress) {
-		return costs.get(socketAddress);
+		double cost;
+		if (costs.get(socketAddress) == null) {
+			cost = Double.MAX_VALUE;
+		} else {
+			cost = costs.get(socketAddress);
+		}
+		return cost;
 	}
 	
 	public JSONObject toJSON() {
