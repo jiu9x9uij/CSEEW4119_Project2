@@ -45,9 +45,9 @@ public class ThreadPooledSender implements Runnable{
         		notifyLinkDown = false;
 //        		if (i > 30) break;///
 //            	System.out.println(i++);///
-        		System.out.println("Notify link-down");///
+//        		System.out.println("Notify link-down");///
         		for (Neighbor n: HostLauncher.host.getNeighbors().values()) {
-        			System.out.println("\t" + n.getSocketAddress() + " online? " + !n.isDown());///
+//        			System.out.println("\t" + n.getSocketAddress() + " online? " + !n.isDown());///
         			if (!n.isDown()) {
             			try {
                 			String socketAddress = n.getSocketAddress();
@@ -67,11 +67,11 @@ public class ThreadPooledSender implements Runnable{
         	/* Send dv to online neighbors when time out or routing table changed */
             if (dvChanged || hostTimeOut()) {
 //            	if (i > 30) break;///
-            	if (dvChanged) System.out.println("DV changed");///
-            	else {
-            		System.out.println("Host time-out");///
-            		HostLauncher.host.showRoutingTable("\t");///
-            	}
+//            	if (dvChanged) System.out.println("DV changed");///
+//            	else {
+//            		System.out.println("Host time-out");///
+//            		HostLauncher.host.showRoutingTable("\t");///
+//            	}
             	dvChanged = false;
             	for (Neighbor n: HostLauncher.host.getNeighbors().values()) {
             		if (!n.isDown()) {

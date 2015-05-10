@@ -18,6 +18,8 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.json.JSONObject;
 
+import com.google.gson.Gson;
+
 import models.DistanceVector;
 import models.FileChunk;
 import models.Neighbor;
@@ -35,22 +37,21 @@ public class Host {
 	
 	public Host(int port, Hashtable<String, Neighbor> directNeighbors) {
 		try {
-			this.address = InetAddress.getLocalHost().getHostAddress();///
+			this.address = InetAddress.getLocalHost().getHostAddress();
 			System.out.println("Host Address = " + address);///
-//			address = "127.0.0.1"; // TODO delete
 			this.port = port;
 			// Open the UDP socket for both sending and listening
 			this.socket = new DatagramSocket(port);
-			System.out.println("Host Port = " + port + "\n");///
-			System.out.println("TIME_OUT = " + HostLauncher.TIME_OUT + "\n");///
+			System.out.println("Host Port = " + port);///
+			System.out.println("Time Out = " + HostLauncher.TIME_OUT + "\n");///
 			
 			// Initialize the essentials for host
 			this.neighbors = new Hashtable<String, Neighbor>(directNeighbors);
-			for (Neighbor n: neighbors.values()) {
-				System.out.println("Down?" + n.isDown());///
-				System.out.println(n);///
-			}
-			System.out.println();///
+//			for (Neighbor n: neighbors.values()) {
+//				System.out.println("Down?" + n.isDown());///
+//				System.out.println(n);///
+//			}
+//			System.out.println();///
 			this.fileBuffer = new Hashtable<String, ArrayList<FileChunk>>();
 			this.dvQueue = new ConcurrentLinkedQueue<DistanceVector>();
 		} catch (SocketException e) {
@@ -125,39 +126,32 @@ public class Host {
 		String destinationAddress = parts[2];
 		String destinationPort = parts[3];
 		
-		final int CHUNK_SIZE = 2048;
+		Utils.println("Sending file \"" + fileName + "\" to host at " + destinationAddress + ":" + destinationPort);
+		
+		final int CHUNK_SIZE = 64;
 		try {
 			String nextHopSocketAddress = neighbors.get(destinationAddress + ":" + destinationPort).getNextHop();
 			parts = nextHopSocketAddress.split(":");
 			String nextHopAddress = parts[0];
 			int nextHopPort = Integer.parseInt(parts[1]);
 			
-			fileName = "test.jpg";// TODO delete
 			FileInputStream in = new FileInputStream(fileName);
-			
-			FileOutputStream fos;
-			fos = new FileOutputStream("output.jpg");
 			
 			int chunkIndex = 0;
 			int bytesRead = 0;
 			byte[] buffer = new byte[CHUNK_SIZE];
 			int numOfChunks = (int)Math.ceil(in.getChannel().size()/(double)CHUNK_SIZE);
-			System.out.println("*  channelSize = " + in.getChannel().size());///
-			System.out.println("*  numOfChunks = " + numOfChunks);///
+//			System.out.println("Sending numOfChunks = " + numOfChunks);///
 			
 			while ((bytesRead = in.read(buffer, 0, CHUNK_SIZE)) != -1)
 			{
-				fos.write(buffer);
-				boolean isLast = false;
 				JSONObject fileChunkPacket = buildFileChunkPacket(fileName, numOfChunks, chunkIndex, buffer, destinationAddress, Integer.parseInt(destinationPort));
 				new PacketSenderWorkerRunnable(socket, fileChunkPacket, nextHopAddress, nextHopPort, "Send file chunk").run();
-				System.out.println("File chunk " + chunkIndex + " sent");///
+//				System.out.println("File chunk " + chunkIndex + " sent");///
 				chunkIndex++;
 			}
 			
 			in.close();
-			
-			fos.close(); // TODO
 		} catch (FileNotFoundException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -177,10 +171,13 @@ public class Host {
 		JSONObject body = new JSONObject();
 		body.put("address", destinationAddress);
 		body.put("port", destinationPort);
-		body.put("fileName", "outputReceived.jpg");// TODO use fileName
+		body.put("fileName", address + "_" + port + "_" + fileName);
 		body.put("numOfChunks", numOfChunks);
 		body.put("index", index);
-		body.put("buffer", buffer.toString());
+		FileChunk chunk = new FileChunk(index, buffer);
+		Gson gson = new Gson();
+		JSONObject bufferJSON = new JSONObject(gson.toJson(chunk));
+		body.put("buffer", bufferJSON);
 		packet.put("body", body);
 		
 		return packet;
@@ -195,10 +192,10 @@ public class Host {
 		Utils.println("Supported Commands: ");
 		Utils.println("	CLOSE");
 		Utils.println("	SHOWRT");
-		Utils.println("	CHANGECOST  <IP> <Port> <Cost>"); // TODO not implemented
+//		Utils.println("	CHANGECOST  <IP> <Port> <Cost>"); // TODO not implemented
 		Utils.println("	LINKDOWN <IP> <Port>"); // TODO not stable
-		Utils.println("	LINKUP <IP> <Port>"); // TODO not implemented
-		Utils.println("	TRANSFER <filename> <DestinationIP> <Port>"); // TODO not implemented
+//		Utils.println("	LINKUP <IP> <Port>"); // TODO not implemented
+		Utils.println("	TRANSFER <filename> <DestinationIP> <Port>");
 	}
 
 	public String getAddress() {
@@ -262,7 +259,7 @@ public class Host {
 		String socketAddress = dv.getSocketAddress();
 		// If dv of this dv's host is changed, update its dv and this host's routing table
 		if (!dv.equals(neighbors.get(socketAddress).getDV())) {
-			System.out.println("Recieved new dv from " + socketAddress + " = " + dv);///
+//			System.out.println("Recieved new dv from " + socketAddress + " = " + dv);///
 			neighbors.get(socketAddress).setDV(dv);
 			updateRoutingTable();
 		}
@@ -274,8 +271,8 @@ public class Host {
 	 */
 	public synchronized void updateRoutingTable() {
 		long t = System.nanoTime();///
-		System.out.println("\n### Updating Routing Table " + t + " ###");///
-		showRoutingTable("");///
+//		System.out.println("\n### Updating Routing Table " + t + " ###");///
+//		showRoutingTable("");///
 		boolean changed = false;
 		
 		// Discover new neighbors based on each current neighbor's DV
@@ -354,9 +351,9 @@ public class Host {
 		
 		if (changed) {
 			sender.dvChanged();
-			showRoutingTable("");
+//			showRoutingTable("");
 		}
-		System.out.println("############ Done " + t + " ############\n");///
+//		System.out.println("############ Done " + t + " ############\n");///
 	}
 	
 	public synchronized void notifyLinkDown(String socketAddressNewDown) {

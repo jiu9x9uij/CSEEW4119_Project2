@@ -54,7 +54,7 @@ public class Neighbor {
 		if (costBackup == -1) {
 			// If last received DV from this neighbor 3*TIME_OUT ago, take its link down
 			if (NANOSECONDS.toSeconds(timestamp - timestampLastDV) >= 3*HostLauncher.TIME_OUT) {
-				System.out.print("[isDown()] ");///
+//				System.out.print("[isDown()] ");///
 				if (linkDown()); // NOTE Just waiting for linkDown to finish
 				result = true;
 			} else {
@@ -70,7 +70,7 @@ public class Neighbor {
 	public synchronized boolean linkDown() {
 		boolean finished = false;
 		
-		System.out.println("linkDown " + socketAddress);///
+//		System.out.println("linkDown " + socketAddress);///
 		costBackup = cost;
 		if (nextHop.equals(socketAddress)) {
 			cost = Double.MAX_VALUE;

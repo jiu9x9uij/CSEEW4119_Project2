@@ -8,7 +8,7 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Hashtable;
+import java.util.ConcurrentModificationException;
 
 import models.DistanceVector;
 import models.FileChunk;
@@ -47,7 +47,7 @@ public class PacketsProcessorWorkerRunnable implements Runnable{
     	try {
     		/* Read packet content */
     		String packetContent = new String(packetRecieved.getData(), 0, packetRecieved.getLength());
-//    		System.out.println("packetContent = " + packetContent); // DEBUG packetContent
+    		System.out.println("packetContent = " + packetContent); // DEBUG packetContent
     		
     		/* Execute command */
 			// Parse command
@@ -66,7 +66,7 @@ public class PacketsProcessorWorkerRunnable implements Runnable{
 			} else if (command.equals("capitalize")) {
 				System.out.println("---response---\n" + capitalize(body) + "\n------end-----");
 			} else {
-				System.out.println("Command Not Supported!"); // DEBUG command not supported
+				Utils.println("Command Not Supported!"); // DEBUG command not supported
 			}
 		} catch (JSONException e) {
 			e.printStackTrace();
@@ -93,28 +93,35 @@ public class PacketsProcessorWorkerRunnable implements Runnable{
 			int chunkIndex = body.getInt("index");
 			int numOfChunks = body.getInt("numOfChunks");
 			String fileName = body.getString("fileName");
-			byte buffer[] = body.getString("buffer").getBytes();
+			Gson gson = new Gson();
+			FileChunk chunk = gson.fromJson(body.getJSONObject("buffer").toString(), FileChunk.class);
+			byte buffer[] = chunk.getBuffer();
 			
-			System.out.println("Received File chunk " + (chunkIndex+1) + " out of " + numOfChunks);///
+//			System.out.println("Received File chunk " + (chunkIndex+1) + " out of " + numOfChunks);///
 			
 			ArrayList<FileChunk> fileBufferList = HostLauncher.host.getFileBuffer().get(fileName);
 			if (fileBufferList == null) {
-				System.out.println(" new fileBufferList for file " + fileName);///
+				System.out.println("Receiving new file, saving as " + fileName);///
 				fileBufferList = new ArrayList<FileChunk>();
 				HostLauncher.host.getFileBuffer().put(fileName, fileBufferList);
 			}
 			
 			fileBufferList.add(new FileChunk(chunkIndex, buffer));
 			
-			System.out.println(" fileBufferList.size() = " +  fileBufferList.size());///
 			if (fileBufferList.size() == numOfChunks) {
-				Collections.sort(fileBufferList, new FileChunkComparator());;
 				try {
+					Collections.sort(fileBufferList, new FileChunkComparator());;
+					
 					FileOutputStream fos = new FileOutputStream(fileName);
+					
 					for (FileChunk fc: HostLauncher.host.getFileBuffer().get(fileName)) {
-						System.out.println("Outputing chunk " + fc.getIndex());///
+//						System.out.println("Outputing chunk " + fc.getIndex());///
 						fos.write(fc.getBuffer());
 					}
+					
+					Utils.println("Finished saving " + fileName);
+					HostLauncher.host.getFileBuffer().remove(fileName);
+					
 					fos.close();
 				} catch (FileNotFoundException e) {
 					// TODO Auto-generated catch block
@@ -122,11 +129,13 @@ public class PacketsProcessorWorkerRunnable implements Runnable{
 				} catch (IOException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
+				} catch (ConcurrentModificationException e) {
+					Utils.println("ERROR: Failed to save file because host is busy saving another file.");
 				}
 			}
 		} else {
 			// Forward packet
-			System.out.println("Forward packet to " + destAddress + ":" + destPort);///
+//			System.out.println("Forward packet to " + destAddress + ":" + destPort);///
 			String nextHopSocketAddress = HostLauncher.host.getNeighbors().get(destAddress + ":" + destPort).getNextHop();
 			String parts[] = nextHopSocketAddress.split(":");
 			String nextHopAddress = parts[0];
@@ -148,7 +157,7 @@ public class PacketsProcessorWorkerRunnable implements Runnable{
 		try {
 			Gson gson = new Gson();
 			DistanceVector dv = gson.fromJson(body.toString(), DistanceVector.class);
-			System.out.println("ROUTEUPDATE from " + dv.getSocketAddress()); // DEBUG packet
+//			System.out.println("ROUTEUPDATE from " + dv.getSocketAddress()); // DEBUG packet
 			Neighbor neighbor = HostLauncher.host.getNeighbors().get(dv.getSocketAddress());
 			if (neighbor != null) {
 				HostLauncher.host.getNeighbors().get(dv.getSocketAddress()).updateTimestamp();
@@ -170,10 +179,10 @@ public class PacketsProcessorWorkerRunnable implements Runnable{
      */
     private synchronized void linkDown(JSONObject body) {
     	String socketAddressNewDown = body.getString("socketAddress");
-    	System.out.println("LINKDOWN for " + socketAddressNewDown); // DEBUG packet
+//    	System.out.println("LINKDOWN for " + socketAddressNewDown); // DEBUG packet
 		Neighbor hostNewDown = HostLauncher.host.getNeighbors().get(socketAddressNewDown);
     	if (hostNewDown != null && !hostNewDown.isDown()) {
-    		System.out.print("[notification] ");///
+//    		System.out.print("[notification] ");///
     		hostNewDown.linkDown();
 		}
 	}

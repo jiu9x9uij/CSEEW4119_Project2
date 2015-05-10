@@ -34,8 +34,8 @@ public class PacketSenderWorkerRunnable implements Runnable{
 //    	System.out.println("### Sending Packet " +  + System.currentTimeMillis() + " ###"); // DEBUG Request received stamp
 		
     	try {
-//    		System.out.println("packetContent = " + packetContentJSON); // DEBUG packetContentJSON
-    		System.out.println("\tSending dv to " + destinationAddress + ":" + destinationPort + " " + packetContentJSON); // DEBUG destinationAddress
+    		System.out.println("packetContent = " + packetContentJSON); // DEBUG packetContentJSON
+//    		System.out.println("\tSending dv to " + destinationAddress + ":" + destinationPort + " " + packetContentJSON); // DEBUG destinationAddress
         	
 			dataToSend = packetContentJSON.toString().getBytes();
 			DatagramPacket sendPacket = new DatagramPacket(dataToSend, dataToSend.length, InetAddress.getByName(destinationAddress), destinationPort);
