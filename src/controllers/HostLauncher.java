@@ -44,7 +44,7 @@ public class HostLauncher {
 			// Read neighbor information from the rest
 			while ((line = bufferedReader.readLine()) != null) {
 				words = line.split(" ");
-				Neighbor neighbor = new Neighbor(words[0], Double.parseDouble(words[1]));
+				Neighbor neighbor = new Neighbor(words[0], Double.parseDouble(words[1]), true);
 				directNeighbors.put(neighbor.getSocketAddress(), neighbor);
 			}
 			

@@ -39,11 +39,11 @@ public class ThreadPooledSender implements Runnable{
             runningThread = Thread.currentThread();
         }
         
-        int i = 0;///
+//        int i = 0;///
         while(!isStopped()){
         	if (notifyLinkDown) {
         		notifyLinkDown = false;
-        		if (i > 30) break;///
+//        		if (i > 30) break;///
 //            	System.out.println(i++);///
         		System.out.println("Notify link-down");///
         		for (Neighbor n: HostLauncher.host.getNeighbors().values()) {
@@ -66,7 +66,7 @@ public class ThreadPooledSender implements Runnable{
         	
         	/* Send dv to online neighbors when time out or routing table changed */
             if (dvChanged || hostTimeOut()) {
-            	if (i > 30) break;///
+//            	if (i > 30) break;///
             	if (dvChanged) System.out.println("DV changed");///
             	else {
             		System.out.println("Host time-out");///

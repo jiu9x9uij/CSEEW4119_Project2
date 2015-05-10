@@ -9,15 +9,18 @@ import controllers.HostLauncher;
 
 public class Neighbor {
 	String socketAddress;
-	double cost, costBackup;
+	double originalCost, cost, costBackup;
+	boolean isDirectNeighbor;
 	DistanceVector dv;
 	String nextHop;
 	private long timestampLastDV;
 	
-	public Neighbor(String address, double cost) {
+	public Neighbor(String address, double cost, boolean isDirectNeighbor) {
 		this.socketAddress = address;
+		this.originalCost = cost;
 		this.cost = cost;
 		this.costBackup = -1;
+		this.isDirectNeighbor = isDirectNeighbor;
 		this.dv = null;
 		this.nextHop = address;
 		this.timestampLastDV = System.nanoTime();
@@ -27,12 +30,20 @@ public class Neighbor {
 		return socketAddress;
 	}
 	
+	public synchronized double getOriginalCost() {
+		return originalCost;
+	}
+	
 	public synchronized double getCost() {
 		return cost;
 	}
 	
 	public synchronized void setCost(double cost) {
 		this.cost = cost;
+	}
+	
+	public boolean isDirectNeighbor() {
+		return isDirectNeighbor;
 	}
 	
 	public synchronized boolean isDown() {
